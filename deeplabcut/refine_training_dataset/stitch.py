@@ -23,6 +23,11 @@ import warnings
 from collections import defaultdict
 
 import deeplabcut
+from deeplabcut.pose_estimation_pytorch.data.dlcloader import DLCLoader
+from deeplabcut.pose_estimation_pytorch.apis.utils import (
+    get_scorer_name,
+    parse_snapshot_index_for_analysis
+)
 from deeplabcut.utils.auxfun_videos import VideoWriter
 from functools import partial
 from deeplabcut.core.trackingutils import (
@@ -1048,6 +1053,8 @@ def stitch_tracklets(
     output_name="",
     transformer_checkpoint="",
     save_as_csv=False,
+    snapshot_index: int | str | None = None,
+    detector_snapshot_index: int | str | None = None,
 ):
     """
     Stitch sparse tracklets into full tracks via a graph-based,
@@ -1136,6 +1143,17 @@ def stitch_tracklets(
     save_as_csv: bool, optional
         Whether to write the tracks to a CSV file too (False by default).
 
+    snapshot_index: index (starting at 0) of the snapshot to use to analyze the
+        videos. To evaluate the last one, use -1. For example if we have
+            - snapshot-0.pt
+            - snapshot-50.pt
+            - snapshot-100.pt
+            - snapshot-best.pt
+        and we want to evaluate snapshot-50.pt, snapshotindex should be 1. If None,
+        the snapshot index is loaded from the project configuration.
+    detector_snapshot_index: (only for top-down models) index of the detector
+        snapshot to use, used in the same way as ``snapshot_index``
+
     Returns
     -------
     A TrackletStitcher object
@@ -1164,10 +1182,24 @@ def stitch_tracklets(
     if n_tracks is None:
         n_tracks = len(animal_names)
 
-    DLCscorer, _ = deeplabcut.utils.auxiliaryfunctions.get_scorer_name(
+    loader = DLCLoader(
         cfg,
-        shuffle,
-        cfg["TrainingFraction"][trainingsetindex],
+        trainset_index=trainingsetindex,
+        shuffle=shuffle,
+        modelprefix=modelprefix,
+    )
+    snapshot_index, detector_snapshot_index = parse_snapshot_index_for_analysis(
+        loader.project_cfg,
+        loader.model_cfg,
+        snapshot_index,
+        detector_snapshot_index,
+    )
+    DLCscorer = get_scorer_name(
+        cfg=cfg,
+        shuffle=shuffle,
+        train_fraction = cfg["TrainingFraction"][trainingsetindex],
+        snapshot_index=snapshot_index,
+        detector_index=detector_snapshot_index,
         modelprefix=modelprefix,
     )
 
