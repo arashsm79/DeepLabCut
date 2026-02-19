@@ -1,0 +1,5 @@
+model:
+  type: RFDETR
+  freeze_bn_stats: false
+  freeze_bn_weights: false
+  model_size: small
